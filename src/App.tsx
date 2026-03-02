@@ -20,6 +20,7 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import { load as loadStore } from '@tauri-apps/plugin-store';
 import { DM } from './api/manager/api';
 import { initRouteObserver } from './services/routeObserver';
+import { gamepadService } from './services/gamepadService';
 
 const themeManager = new ThemeManagerApi();
 
@@ -33,6 +34,7 @@ function App(props: { children: number | boolean | Node | JSX.ArrayElement | (st
 
   onMount(async () => {
     initRouteObserver(history);
+    gamepadService.init(history);
 
     installerService.start();
 
@@ -79,6 +81,7 @@ function App(props: { children: number | boolean | Node | JSX.ArrayElement | (st
   });
   onCleanup(() => {
     pageAbortController.abort();
+    gamepadService.destroy();
     if (cleanupInterval !== undefined) {
       clearInterval(cleanupInterval);
     }

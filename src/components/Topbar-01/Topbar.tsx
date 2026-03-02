@@ -1,6 +1,6 @@
 import { A } from "@solidjs/router";
-import { Compass, Download, Home, Library, Maximize2, Minimize2, Minus, Settings, X } from "lucide-solid";
-import { createSignal, onMount, Show } from "solid-js";
+import { Compass, Download, Gamepad2, Home, Library, Maximize2, Minimize2, Minus, Settings, X } from "lucide-solid";
+import { createSignal, onMount, onCleanup, Show } from "solid-js";
 import Searchbar from "./Topbar-Components-01/Searchbar-01/Searchbar";
 import { listen, Event } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -13,6 +13,7 @@ import { routeHistory } from "../../stores/routeStore";
 export default function Topbar() {
   const [isMaximized, setIsMaximized] = createSignal(false);
   const [isFullscreen, setIsFullscreen] = createSignal(false);
+  const [isGamepadConnected, setIsGamepadConnected] = createSignal(false);
 
   const isActive = (path: string) => {
     return routeHistory.at(-1) === path;
@@ -101,6 +102,23 @@ export default function Topbar() {
     setIsMaximized(await appWindow.isMaximized());
     setIsFullscreen(await appWindow.isFullscreen());
 
+    // Detect already-connected gamepads on mount
+    const detectGamepad = () => {
+      const gamepads = navigator.getGamepads?.();
+      if (gamepads) {
+        setIsGamepadConnected(Array.from(gamepads).some((gp) => gp !== null));
+      }
+    };
+    detectGamepad();
+
+    const onGamepadConnected = () => setIsGamepadConnected(true);
+    const onGamepadDisconnected = () => {
+      const gamepads = navigator.getGamepads?.();
+      setIsGamepadConnected(gamepads ? Array.from(gamepads).some((gp) => gp !== null) : false);
+    };
+    window.addEventListener('gamepadconnected', onGamepadConnected);
+    window.addEventListener('gamepaddisconnected', onGamepadDisconnected);
+
     const unlistenResize = await appWindow.onResized(async () => {
       setIsFullscreen(await appWindow.isFullscreen());
       setIsMaximized(await appWindow.isMaximized());
@@ -125,9 +143,11 @@ export default function Topbar() {
       console.error('Scraping failed:', event.payload.message);
     });
 
-    return () => {
+    onCleanup(() => {
+      window.removeEventListener('gamepadconnected', onGamepadConnected);
+      window.removeEventListener('gamepaddisconnected', onGamepadDisconnected);
       unlistenResize();
-    };
+    });
   });
 
   return (
@@ -136,12 +156,22 @@ export default function Topbar() {
       data-tauri-drag-region
     >
       {/* Logo */}
-      <img
-        src='/Square310x310Logo.png'
-        alt='fitgirl repack logo'
-        class="w-8 h-8 rounded-md object-cover"
-        style="-webkit-app-region: no-drag;"
-      />
+      <div class="flex items-center gap-2" style="-webkit-app-region: no-drag;">
+        <img
+          src='/Square310x310Logo.png'
+          alt='fitgirl repack logo'
+          class="w-8 h-8 rounded-md object-cover"
+        />
+        <Show when={isGamepadConnected()}>
+          <span
+            class="flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent/15 border border-accent/30 text-accent text-xs font-medium"
+            title="Gamepad connected – use D-pad to navigate, A to confirm, B to go back, LB/RB to switch tabs"
+          >
+            <Gamepad2 size={12} />
+            <span>Controller</span>
+          </span>
+        </Show>
+      </div>
 
       {/* Right Section - Searchbar */}
       <div class="flex-1 max-w-fit ml-4" style="-webkit-app-region: no-drag;">
